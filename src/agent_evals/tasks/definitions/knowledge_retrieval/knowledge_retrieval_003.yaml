@@ -1,0 +1,17 @@
+id: knowledge_retrieval_003
+category: knowledge_retrieval
+prompt: "Explain retrieval-augmented generation and give one cited source that defines or describes it."
+description: "Concept retrieval with citation."
+expected_outcomes: ["retrieval", "generation", "source"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 1
+reference_citations:
+  - claim: "RAG source"
+    must_cite_domain: "arxiv.org"
+allowed_tools: ["web_search", "fetch_url"]
+scoring: {pass_threshold: 0.7}
+timeout_s: 120
+max_tool_calls: 6

@@ -1,0 +1,18 @@
+id: data_extraction_004
+category: data_extraction
+prompt: "Extract Python's current stable release from python.org and return strict JSON with version, release date, and source URL."
+description: "Structured release extraction."
+expected_outcomes: ["JSON", "Python", "release"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 1
+reference_citations:
+  - claim: "Python release source"
+    must_cite_domain: "python.org"
+allowed_tools: ["web_search", "fetch_url"]
+output_format: json
+scoring: {pass_threshold: 0.7}
+timeout_s: 120
+max_tool_calls: 6

@@ -1,0 +1,17 @@
+id: knowledge_retrieval_001
+category: knowledge_retrieval
+prompt: "Answer: what is PEP 703 and why does it matter for Python? Cite official or authoritative sources."
+description: "Knowledge retrieval with citations."
+expected_outcomes: ["PEP 703", "GIL", "Python"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 1
+reference_citations:
+  - claim: "PEP 703 source"
+    must_cite_domain: "python.org"
+allowed_tools: ["web_search", "fetch_url"]
+scoring: {pass_threshold: 0.7}
+timeout_s: 120
+max_tool_calls: 6

@@ -1,0 +1,17 @@
+id: travel_planning_002
+category: travel_planning
+prompt: "Plan a three-day Tokyo itinerary for a traveler interested in design, transit, and ramen. Cite sources."
+description: "International itinerary planning."
+expected_outcomes: ["Tokyo", "three-day", "ramen"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 1
+reference_citations:
+  - claim: "Tokyo travel source"
+    must_cite_domain: "gotokyo.org"
+allowed_tools: ["web_search", "fetch_url"]
+scoring: {pass_threshold: 0.7}
+timeout_s: 180
+max_tool_calls: 8

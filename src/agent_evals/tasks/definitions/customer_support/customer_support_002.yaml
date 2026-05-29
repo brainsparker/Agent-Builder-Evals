@@ -1,0 +1,12 @@
+id: customer_support_002
+category: customer_support
+prompt: "Customer lee@example.com asks why order ord_2002 cannot receive a late-delivery refund. Verify order and explain the policy."
+description: "Policy explanation workflow."
+expected_outcomes: ["delivered", "not delayed", "policy"]
+expected_tool_calls:
+  - tool: support_lookup
+    min_calls: 2
+allowed_tools: ["support_lookup"]
+scoring: {pass_threshold: 0.75}
+timeout_s: 90
+max_tool_calls: 5

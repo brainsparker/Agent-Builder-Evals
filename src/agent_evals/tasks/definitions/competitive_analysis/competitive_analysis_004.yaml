@@ -1,0 +1,19 @@
+id: competitive_analysis_004
+category: competitive_analysis
+prompt: "Compare Snowflake and BigQuery for analytics warehousing. Provide cited pros and cons."
+description: "Competitive data warehouse analysis."
+expected_outcomes: ["Snowflake", "BigQuery", "pros and cons"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 2
+reference_citations:
+  - claim: "Snowflake source"
+    must_cite_domain: "snowflake.com"
+  - claim: "BigQuery source"
+    must_cite_domain: "cloud.google.com"
+allowed_tools: ["web_search", "fetch_url"]
+scoring: {pass_threshold: 0.7}
+timeout_s: 150
+max_tool_calls: 8

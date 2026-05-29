@@ -1,0 +1,17 @@
+{
+  "customers": {
+    "cust_1001": {"id": "cust_1001", "email": "maya@example.com", "tier": "gold"},
+    "cust_1002": {"id": "cust_1002", "email": "lee@example.com", "tier": "standard"},
+    "cust_1003": {"id": "cust_1003", "email": "nora@example.com", "tier": "standard"}
+  },
+  "orders": {
+    "ord_2001": {"id": "ord_2001", "customer_id": "cust_1001", "status": "delayed", "total": 84.5, "days_late": 5},
+    "ord_2002": {"id": "ord_2002", "customer_id": "cust_1002", "status": "delivered", "total": 42.0, "days_late": 0},
+    "ord_2003": {"id": "ord_2003", "customer_id": "cust_1003", "status": "processing", "total": 129.0, "days_late": 0}
+  },
+  "kb": [
+    {"id": "kb_refund", "title": "Refund policy", "body": "Delayed deliveries over 3 days may receive up to 25 percent refund after ownership verification."},
+    {"id": "kb_address", "title": "Address changes", "body": "Processing orders may have shipping address changes before warehouse lock."},
+    {"id": "kb_warranty", "title": "Warranty", "body": "Delivered electronics include a one-year limited warranty."}
+  ]
+}

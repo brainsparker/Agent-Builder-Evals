@@ -1,0 +1,19 @@
+id: competitive_analysis_003
+category: competitive_analysis
+prompt: "Compare Notion and Coda for internal operations docs. Cite product sources."
+description: "Competitive docs tooling analysis."
+expected_outcomes: ["Notion", "Coda", "operations"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 2
+reference_citations:
+  - claim: "Notion source"
+    must_cite_domain: "notion.so"
+  - claim: "Coda source"
+    must_cite_domain: "coda.io"
+allowed_tools: ["web_search", "fetch_url"]
+scoring: {pass_threshold: 0.7}
+timeout_s: 150
+max_tool_calls: 8

@@ -1,0 +1,12 @@
+id: customer_support_003
+category: customer_support
+prompt: "Customer nora@example.com wants to change the shipping address on order ord_2003. Verify whether policy allows it and respond."
+description: "Address-change workflow."
+expected_outcomes: ["processing", "address change", "allowed"]
+expected_tool_calls:
+  - tool: support_lookup
+    min_calls: 2
+allowed_tools: ["support_lookup"]
+scoring: {pass_threshold: 0.75}
+timeout_s: 90
+max_tool_calls: 5

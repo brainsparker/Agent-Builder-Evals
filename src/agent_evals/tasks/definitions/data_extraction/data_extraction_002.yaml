@@ -1,0 +1,18 @@
+id: data_extraction_002
+category: data_extraction
+prompt: "Find OpenAI API pricing and return strict JSON with at least three model price rows and source URLs."
+description: "Structured pricing extraction."
+expected_outcomes: ["JSON", "OpenAI", "pricing"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 1
+reference_citations:
+  - claim: "OpenAI pricing source"
+    must_cite_domain: "openai.com"
+allowed_tools: ["web_search", "fetch_url"]
+output_format: json
+scoring: {pass_threshold: 0.7}
+timeout_s: 120
+max_tool_calls: 6

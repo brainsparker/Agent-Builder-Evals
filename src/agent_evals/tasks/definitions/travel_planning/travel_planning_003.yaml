@@ -1,0 +1,17 @@
+id: travel_planning_003
+category: travel_planning
+prompt: "Plan a weekend in New Orleans focused on live music and food. Cite sources."
+description: "Weekend itinerary planning."
+expected_outcomes: ["New Orleans", "music", "food"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 1
+reference_citations:
+  - claim: "New Orleans visitor source"
+    must_cite_domain: "neworleans.com"
+allowed_tools: ["web_search", "fetch_url"]
+scoring: {pass_threshold: 0.7}
+timeout_s: 180
+max_tool_calls: 8

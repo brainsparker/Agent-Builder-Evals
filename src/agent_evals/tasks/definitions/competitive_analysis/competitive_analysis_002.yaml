@@ -1,0 +1,19 @@
+id: competitive_analysis_002
+category: competitive_analysis
+prompt: "Compare Supabase and Firebase for a new SaaS MVP. Include tradeoffs and citations."
+description: "Competitive platform analysis."
+expected_outcomes: ["Supabase", "Firebase", "tradeoffs"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 2
+reference_citations:
+  - claim: "Supabase source"
+    must_cite_domain: "supabase.com"
+  - claim: "Firebase source"
+    must_cite_domain: "firebase.google.com"
+allowed_tools: ["web_search", "fetch_url"]
+scoring: {pass_threshold: 0.7}
+timeout_s: 150
+max_tool_calls: 8

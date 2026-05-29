@@ -1,0 +1,17 @@
+id: company_research_002
+category: company_research
+prompt: "Research Stripe's developer product suite and summarize the main customer value with citations."
+description: "Company product-suite research."
+expected_outcomes: ["payments", "developer", "citations"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 1
+reference_citations:
+  - claim: "Stripe product information"
+    must_cite_domain: "stripe.com"
+allowed_tools: ["web_search", "fetch_url"]
+scoring: {pass_threshold: 0.7}
+timeout_s: 120
+max_tool_calls: 6

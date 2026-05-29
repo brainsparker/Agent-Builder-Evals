@@ -1,0 +1,18 @@
+id: coding_004
+category: coding
+prompt: "Write Python code defining dedupe_keep_order(items: list) -> list that removes duplicates while preserving first occurrence order. Return only the code."
+description: "List dedupe implementation."
+expected_outcomes: ["dedupe_keep_order", "duplicates", "order"]
+expected_tool_calls:
+  - tool: code_exec
+    required: false
+    min_calls: 0
+    max_calls: 3
+allowed_tools: ["code_exec"]
+hidden_tests: test_dedupe.py
+output_format: code
+scoring:
+  weights: {coding_tests: 0.7, completion: 0.2, tool: 0.1}
+  pass_threshold: 0.8
+timeout_s: 120
+max_tool_calls: 4

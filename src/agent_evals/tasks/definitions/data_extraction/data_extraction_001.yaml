@@ -1,0 +1,18 @@
+id: data_extraction_001
+category: data_extraction
+prompt: "Find Anthropic's current pricing page and return strict JSON with model names and input/output prices you can verify."
+description: "Structured extraction from web source."
+expected_outcomes: ["JSON", "model", "price"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 1
+reference_citations:
+  - claim: "Anthropic pricing source"
+    must_cite_domain: "anthropic.com"
+allowed_tools: ["web_search", "fetch_url"]
+output_format: json
+scoring: {pass_threshold: 0.7}
+timeout_s: 120
+max_tool_calls: 6

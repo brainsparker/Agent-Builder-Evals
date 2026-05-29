@@ -1,0 +1,18 @@
+id: coding_002
+category: coding
+prompt: "Write Python code defining moving_average(values: list[float], window: int) -> list[float]. Return only the code."
+description: "Moving average implementation."
+expected_outcomes: ["moving_average", "window", "average"]
+expected_tool_calls:
+  - tool: code_exec
+    required: false
+    min_calls: 0
+    max_calls: 3
+allowed_tools: ["code_exec"]
+hidden_tests: test_moving_average.py
+output_format: code
+scoring:
+  weights: {coding_tests: 0.7, completion: 0.2, tool: 0.1}
+  pass_threshold: 0.8
+timeout_s: 120
+max_tool_calls: 4

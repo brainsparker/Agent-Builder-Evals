@@ -1,0 +1,19 @@
+id: competitive_analysis_001
+category: competitive_analysis
+prompt: "Compare Linear and Jira for a 20-person product engineering team. Cite sources for both products."
+description: "Competitive product analysis."
+expected_outcomes: ["Linear", "Jira", "recommendation"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 2
+reference_citations:
+  - claim: "Linear product source"
+    must_cite_domain: "linear.app"
+  - claim: "Jira product source"
+    must_cite_domain: "atlassian.com"
+allowed_tools: ["web_search", "fetch_url"]
+scoring: {pass_threshold: 0.7}
+timeout_s: 150
+max_tool_calls: 8

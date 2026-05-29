@@ -1,0 +1,17 @@
+id: company_research_003
+category: company_research
+prompt: "Research Datadog and summarize its observability offering, target users, and one cited source."
+description: "Company offering summary."
+expected_outcomes: ["observability", "monitoring", "source"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 1
+reference_citations:
+  - claim: "Datadog observability information"
+    must_cite_domain: "datadoghq.com"
+allowed_tools: ["web_search", "fetch_url"]
+scoring: {pass_threshold: 0.7}
+timeout_s: 120
+max_tool_calls: 6

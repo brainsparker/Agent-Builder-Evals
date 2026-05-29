@@ -1,0 +1,18 @@
+id: coding_001
+category: coding
+prompt: "Write Python code defining reverse_words(text: str) -> str. It should reverse characters inside each whitespace-separated word and join words with single spaces. Return only the code."
+description: "Small coding task with hidden tests."
+expected_outcomes: ["reverse_words", "split", "reverse"]
+expected_tool_calls:
+  - tool: code_exec
+    required: false
+    min_calls: 0
+    max_calls: 3
+allowed_tools: ["code_exec"]
+hidden_tests: test_reverse_words.py
+output_format: code
+scoring:
+  weights: {coding_tests: 0.7, completion: 0.2, tool: 0.1}
+  pass_threshold: 0.8
+timeout_s: 120
+max_tool_calls: 4

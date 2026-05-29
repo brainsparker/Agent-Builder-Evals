@@ -1,0 +1,13 @@
+id: customer_support_001
+category: customer_support
+prompt: "Customer maya@example.com asks for a refund on delayed order ord_2001. Verify ownership and policy, then decide whether to issue a refund."
+description: "Refund policy workflow."
+expected_outcomes: ["verify ownership", "refund", "delayed"]
+expected_tool_calls:
+  - tool: support_lookup
+    min_calls: 3
+    arg_contains: {action: issue_refund}
+allowed_tools: ["support_lookup"]
+scoring: {pass_threshold: 0.75}
+timeout_s: 90
+max_tool_calls: 6

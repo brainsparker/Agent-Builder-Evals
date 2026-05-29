@@ -1,0 +1,17 @@
+id: company_research_004
+category: company_research
+prompt: "Research Shopify's commerce platform and summarize who it serves, using cited sources."
+description: "Company audience and platform research."
+expected_outcomes: ["commerce", "merchants", "citation"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 1
+reference_citations:
+  - claim: "Shopify platform information"
+    must_cite_domain: "shopify.com"
+allowed_tools: ["web_search", "fetch_url"]
+scoring: {pass_threshold: 0.7}
+timeout_s: 120
+max_tool_calls: 6

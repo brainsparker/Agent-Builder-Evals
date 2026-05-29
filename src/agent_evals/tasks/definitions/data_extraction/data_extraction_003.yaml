@@ -1,0 +1,18 @@
+id: data_extraction_003
+category: data_extraction
+prompt: "Extract the latest Node.js LTS version from official sources and return strict JSON with version, codename if available, and URL."
+description: "Structured version extraction."
+expected_outcomes: ["JSON", "Node.js", "version"]
+expected_tool_calls:
+  - tool: web_search
+    min_calls: 1
+  - tool: fetch_url
+    min_calls: 1
+reference_citations:
+  - claim: "Node.js release source"
+    must_cite_domain: "nodejs.org"
+allowed_tools: ["web_search", "fetch_url"]
+output_format: json
+scoring: {pass_threshold: 0.7}
+timeout_s: 120
+max_tool_calls: 6
