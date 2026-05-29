@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agent Builder Evals</title>
+    <meta
+      name="description"
+      content="Open-source CLI benchmark suite for apples-to-apples AI agent evaluation across providers."
+    />
+    <meta property="og:title" content="Agent Builder Evals" />
+    <meta
+      property="og:description"
+      content="Apples-to-apples CLI benchmarks for real AI agent systems."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <nav class="nav" aria-label="Primary navigation">
+        <div class="brand">
+          <span class="mark">AE</span>
+          <span>Agent Builder Evals</span>
+        </div>
+        <div class="nav-links">
+          <a href="#benchmark">Benchmark</a>
+          <a href="#fairness">Fairness</a>
+          <a href="#install">Install</a>
+          <a href="https://pypi.org/project/agent-builder-evals/">PyPI</a>
+          <a class="button secondary" href="https://github.com/brainsparker/Agent-Builder-Evals">
+            GitHub
+          </a>
+        </div>
+      </nav>
+
+      <main>
+        <header class="hero">
+          <div>
+            <p class="eyebrow">Open-source CLI benchmark for AI agents</p>
+            <h1>Agent evaluation without marketing fog.</h1>
+            <p class="hero-copy">
+              Agent Builder Evals compares complete agent systems across OpenAI and Anthropic
+              with the same tool schemas, the same execution layer, and replayable JSON traces.
+            </p>
+            <div class="actions">
+              <a class="button" href="#install">Install the CLI</a>
+              <a class="button secondary" href="#fairness">See the fairness model</a>
+            </div>
+            <div class="proof-row" aria-label="Project facts">
+              <div class="proof"><strong>25</strong><span>benchmark tasks</span></div>
+              <div class="proof"><strong>7</strong><span>task categories</span></div>
+              <div class="proof"><strong>6</strong><span>score dimensions</span></div>
+              <div class="proof"><strong>2</strong><span>provider adapters</span></div>
+            </div>
+          </div>
+
+          <div class="product-shot" aria-label="Terminal output preview">
+            <div class="terminal-bar">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </div>
+            <div class="terminal">
+              <div><span class="muted">$</span> agent-evals compare openai.json anthropic.json</div>
+              <br />
+              <div><span class="blue">Run</span>                  Overall   Failure   Cost</div>
+              <div>openai / gpt-5.1       <span class="green">0.842</span>     4.0%      $0.18</div>
+              <div>anthropic / opus       <span class="green">0.817</span>     8.0%      $0.31</div>
+              <br />
+              <div class="muted">by_dimension</div>
+              <div>completion       █████████░ 0.89</div>
+              <div>tool_accuracy    ████████░░ 0.82</div>
+              <div>citation_quality ███████░░░ 0.74</div>
+              <div class="score-grid">
+                <div class="score"><span>Median latency</span><strong>18.4s</strong></div>
+                <div class="score"><span>Tasks passed</span><strong>21/25</strong></div>
+                <div class="score"><span>Replayable</span><strong>JSON</strong></div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section id="benchmark">
+          <div class="section-head">
+            <h2>Measures the agent, not just the model.</h2>
+            <p>
+              The harness runs real workflows that require search, fetching, code execution,
+              support-data lookups, citation grounding, and trace normalization.
+            </p>
+          </div>
+          <div class="metrics">
+            <div class="metric">
+              <b>Task completion</b>
+              <p>Checks whether the final answer satisfies task-specific outcomes.</p>
+            </div>
+            <div class="metric">
+              <b>Tool accuracy</b>
+              <p>Scores required calls, argument quality, errors, and unnecessary thrash.</p>
+            </div>
+            <div class="metric">
+              <b>Citation quality</b>
+              <p>Verifies cited URLs came from tool traces and support stated claims.</p>
+            </div>
+            <div class="metric">
+              <b>Latency</b>
+              <p>Normalizes elapsed runtime against category-level budgets.</p>
+            </div>
+            <div class="metric">
+              <b>Cost</b>
+              <p>Uses a shared pricing path so totals are comparable run to run.</p>
+            </div>
+            <div class="metric">
+              <b>Failure rate</b>
+              <p>Tracks hard errors, timeouts, and max-tool-call stops.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="fairness">
+          <div class="section-head">
+            <h2>Same tools. Same schemas. Same execution code.</h2>
+            <p>
+              Both providers receive the same benchmark tools. The adapters only translate a
+              shared tool spec into the SDK-specific shape.
+            </p>
+          </div>
+          <div class="flow">
+            <div class="flow-step">
+              <span class="num">1</span>
+              <h3>Load task YAML</h3>
+              <p>Each task declares tools, expected outcomes, scoring weights, and limits.</p>
+            </div>
+            <div class="flow-step">
+              <span class="num">2</span>
+              <h3>Expose shared tools</h3>
+              <p>OpenAI and Anthropic receive identical JSON Schema from one registry.</p>
+            </div>
+            <div class="flow-step">
+              <span class="num">3</span>
+              <h3>Normalize traces</h3>
+              <p>Messages, tool calls, usage, latency, and errors become one trace format.</p>
+            </div>
+            <div class="flow-step">
+              <span class="num">4</span>
+              <h3>Write JSON results</h3>
+              <p>Timestamped files can be shown, compared, replayed, or read by a dashboard.</p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="comparison">
+            <div>
+              <h2>A benchmark contract that survives the UI.</h2>
+              <p class="callout">
+                The first release is CLI-only. The result schema is the product surface: every run
+                writes a portable scorecard with normalized traces and cassette data.
+              </p>
+            </div>
+            <div class="schema">
+              <h3>Result shape</h3>
+              <pre><code>{
+  "schema_version": "2026-05-29.1",
+  "manifest": {
+    "provider": "openai",
+    "model": "gpt-5.1",
+    "task_hashes": {}
+  },
+  "summary": {
+    "overall_mean": 0.842,
+    "failure_rate": 0.04
+  },
+  "scorecards": []
+}</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <section id="install">
+          <div class="section-head">
+            <h2>Install it like a normal CLI.</h2>
+            <p>
+              Published on PyPI for isolated installation with pipx. Add provider keys, run tasks,
+              then compare result files in the terminal.
+            </p>
+          </div>
+          <div class="install">
+            <div class="command">
+              <pre><code>pipx install agent-builder-evals
+agent-evals list-tasks
+
+export OPENAI_API_KEY="..."
+export YOU_API_KEY="..."
+
+agent-evals run \
+  --provider openai \
+  --tasks coding_001,company_research_001</code></pre>
+            </div>
+            <div class="command">
+              <pre><code>agent-evals show results/run_openai.json
+
+agent-evals compare \
+  results/run_openai.json \
+  results/run_anthropic.json
+
+agent-evals replay results/run_openai.json</code></pre>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>Agent Builder Evals</span>
+        <span>Apples-to-apples benchmarks for real AI agent systems.</span>
+      </footer>
+    </div>
+  </body>
+</html>
