@@ -3,37 +3,40 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from agent_evals.adapters import make_adapter
+from agent_evals.adapters import AgentAdapter, make_adapter
 from agent_evals.config import require_keys
 from agent_evals.git import git_revision
 from agent_evals.models import ProviderName, RunManifest, RunResult, Task
 from agent_evals.pricing import pricing_hash
 from agent_evals.results_io import write_result
 from agent_evals.scorers.aggregate import score_trace, summarize
-from agent_evals.tasks.loader import task_hashes
-from agent_evals.tools import build_default_registry
+from agent_evals.tasks.loader import TASKS_DIR, task_hashes
+from agent_evals.tools import ToolRegistry, build_default_registry
 from agent_evals.tools.base import ToolContext
 from agent_evals.tools.search_backend import MockBackend, YouBackend
 from agent_evals.version import SCHEMA_VERSION, __version__
 
 
-def run_benchmark(
+def execute_run(
     *,
-    provider: ProviderName,
-    model: str,
+    adapter: AgentAdapter,
+    registry: ToolRegistry,
     tasks: list[Task],
     judge_model: str,
     record_mode: str,
     seed: int,
-    out_dir: Path,
+    backend: object,
     concurrency: int = 1,
-) -> Path:
-    settings = require_keys(provider, needs_search=record_mode == "live")
-    api_key = settings.anthropic_api_key if provider == "anthropic" else settings.openai_api_key
-    backend = YouBackend(settings.you_api_key or "") if record_mode == "live" else MockBackend()
-    adapter = make_adapter(provider, model, api_key=api_key)
-    registry = build_default_registry()
+    tasks_dir: Path | None = None,
+) -> RunResult:
+    """Run an agent over tasks and score it, returning the result in memory.
+
+    The adapter and registry are injected so a bring-your-own agent (custom
+    adapter, custom tools) can be benchmarked through the exact same scoring
+    and manifest path as the built-in providers.
+    """
     cassette: dict[str, object] = {}
+
     def run_one(task: Task):
         ctx = ToolContext(search_backend=backend, record_mode=record_mode, cassette=cassette)
         trace = adapter.run_task(task, registry, ctx)
@@ -48,21 +51,55 @@ def run_benchmark(
         schema_version=SCHEMA_VERSION,
         package_version=__version__,
         git_revision=git_revision(),
-        provider=provider,
-        model=model,
+        provider=adapter.provider,  # type: ignore[arg-type]
+        model=adapter.model,
         judge_model=judge_model,
         seed=seed,
         tool_layer_version="shared-tools-v1",
         pricing_hash=pricing_hash(),
-        task_hashes=task_hashes(tasks),
+        task_hashes=task_hashes(tasks, root=tasks_dir or TASKS_DIR),
         record_mode=record_mode,  # type: ignore[arg-type]
     )
-    run = RunResult(
+    return RunResult(
         schema_version=SCHEMA_VERSION,
         manifest=manifest,
         summary=summarize(scorecards),
         scorecards=scorecards,
         cassette=cassette,
+    )
+
+
+def default_backend(record_mode: str, you_api_key: str | None) -> object:
+    return YouBackend(you_api_key or "") if record_mode == "live" else MockBackend()
+
+
+def run_benchmark(
+    *,
+    provider: ProviderName,
+    model: str,
+    tasks: list[Task],
+    judge_model: str,
+    record_mode: str,
+    seed: int,
+    out_dir: Path,
+    concurrency: int = 1,
+    tasks_dir: Path | None = None,
+) -> Path:
+    settings = require_keys(provider, needs_search=record_mode == "live")
+    api_key = settings.anthropic_api_key if provider == "anthropic" else settings.openai_api_key
+    backend = default_backend(record_mode, settings.you_api_key)
+    adapter = make_adapter(provider, model, api_key=api_key)
+    registry = build_default_registry()
+    run = execute_run(
+        adapter=adapter,
+        registry=registry,
+        tasks=tasks,
+        judge_model=judge_model,
+        record_mode=record_mode,
+        seed=seed,
+        backend=backend,
+        concurrency=concurrency,
+        tasks_dir=tasks_dir,
     )
     return write_result(run, out_dir)
 

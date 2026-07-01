@@ -18,7 +18,9 @@ class Category(str, Enum):
 
 
 FinishedReason = Literal["completed", "error", "timeout", "max_tool_calls"]
-ProviderName = Literal["anthropic", "openai"]
+# Built-in providers are "anthropic"/"openai", but bring-your-own agents may
+# report any label, so this is an open string rather than a closed literal.
+ProviderName = str
 
 
 class ExpectedToolCall(BaseModel):

@@ -221,6 +221,10 @@ h1 {
   color: #8db8ff;
 }
 
+.terminal .red {
+  color: #ff8a8a;
+}
+
 .score-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

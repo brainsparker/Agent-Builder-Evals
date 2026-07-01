@@ -29,5 +29,12 @@ def write_result(run: RunResult, out_dir: Path) -> Path:
     return path
 
 
+def write_result_to(run: RunResult, path: Path) -> Path:
+    """Write a result to an exact path (used to pin/refresh a CI baseline)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(run.model_dump_json(indent=2), encoding="utf-8")
+    return path
+
+
 def read_result(path: Path) -> RunResult:
     return RunResult.model_validate(json.loads(path.read_text(encoding="utf-8")))

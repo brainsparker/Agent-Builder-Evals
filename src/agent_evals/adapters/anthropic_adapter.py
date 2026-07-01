@@ -11,8 +11,15 @@ from agent_evals.tools.base import ToolContext, ToolRegistry, ToolSpec
 class AnthropicAdapter:
     provider = "anthropic"
 
-    def __init__(self, model: str = "claude-opus-4-8", api_key: str | None = None, client: Any = None):
+    def __init__(
+        self,
+        model: str = "claude-opus-4-8",
+        api_key: str | None = None,
+        client: Any = None,
+        system_prompt: str | None = None,
+    ):
         self.model = model
+        self.system_prompt = system_prompt
         if client is not None:
             self.client = client
         else:
@@ -65,12 +72,15 @@ class AnthropicAdapter:
         tool_defs = self._tool_defs(registry.specs(allowed))
         try:
             for _ in range(task.max_tool_calls + 1):
-                response = self.client.messages.create(
+                create_kwargs: dict[str, Any] = dict(
                     model=self.model,
                     max_tokens=4096,
                     tools=tool_defs,
                     messages=messages,
                 )
+                if self.system_prompt:
+                    create_kwargs["system"] = self.system_prompt
+                response = self.client.messages.create(**create_kwargs)
                 usage = usage.add(self._usage(response))
                 norm_messages.append(NormMessage(role="assistant", content=str(response.content)))
                 final_output = self._content_text(response.content)

@@ -12,10 +12,19 @@ from agent_evals.tools.base import ToolContext, ToolRegistry, ToolSpec
 class OpenAIAdapter:
     provider = "openai"
 
-    def __init__(self, model: str = "gpt-5.1", api_key: str | None = None, runner: Any = None):
+    DEFAULT_INSTRUCTIONS = "Complete the benchmark task. Use tools when needed and cite fetched sources."
+
+    def __init__(
+        self,
+        model: str = "gpt-5.1",
+        api_key: str | None = None,
+        runner: Any = None,
+        system_prompt: str | None = None,
+    ):
         self.model = model
         self.runner = runner
         self.api_key = api_key
+        self.system_prompt = system_prompt
 
     def _to_sdk_tool(self, spec: ToolSpec, registry: ToolRegistry, ctx: ToolContext) -> Any:
         from agents import FunctionTool
@@ -66,7 +75,7 @@ class OpenAIAdapter:
             agent = Agent(
                 name="Agent Builder Eval Agent",
                 model=self.model,
-                instructions="Complete the benchmark task. Use tools when needed and cite fetched sources.",
+                instructions=self.system_prompt or self.DEFAULT_INSTRUCTIONS,
                 tools=sdk_tools,
             )
             runner = self.runner or Runner

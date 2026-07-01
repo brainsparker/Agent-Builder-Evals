@@ -6,12 +6,12 @@
     <title>Agent Builder Evals</title>
     <meta
       name="description"
-      content="Open-source CLI benchmark suite for apples-to-apples AI agent evaluation across providers."
+      content="Regression testing & CI for AI agents. Run it on every change to catch drops in quality, cost, and latency — with replayable traces as proof."
     />
-    <meta property="og:title" content="Agent Builder Evals" />
+    <meta property="og:title" content="Agent Builder Evals — CI for AI agents" />
     <meta
       property="og:description"
-      content="Apples-to-apples CLI benchmarks for real AI agent systems."
+      content="pytest for your AI agent: a regression gate that fails CI when your agent gets worse, with replayable traces."
     />
     <meta property="og:type" content="website" />
     <link rel="stylesheet" href="styles.css" />
@@ -24,8 +24,8 @@
           <span>Agent Builder Evals</span>
         </div>
         <div class="nav-links">
-          <a href="#benchmark">Benchmark</a>
-          <a href="#fairness">Fairness</a>
+          <a href="#benchmark">What it scores</a>
+          <a href="#ci">CI gate</a>
           <a href="#install">Install</a>
           <a href="https://pypi.org/project/agent-builder-evals/">PyPI</a>
           <a class="button secondary" href="https://github.com/brainsparker/Agent-Builder-Evals">
@@ -37,21 +37,22 @@
       <main>
         <header class="hero">
           <div>
-            <p class="eyebrow">Open-source CLI benchmark for AI agents</p>
-            <h1>Agent evaluation without marketing fog.</h1>
+            <p class="eyebrow">Regression testing &amp; CI for AI agents</p>
+            <h1>Catch agent regressions before they ship.</h1>
             <p class="hero-copy">
-              Agent Builder Evals compares complete agent systems across OpenAI and Anthropic
-              with the same tool schemas, the same execution layer, and replayable JSON traces.
+              pytest for your AI agent. <code>agent-evals check</code> runs your agent on every
+              change and fails CI when quality, cost, or latency regresses — with a replayable
+              JSON trace behind every score, so the result is evidence, not a number to trust.
             </p>
             <div class="actions">
-              <a class="button" href="#install">Install the CLI</a>
-              <a class="button secondary" href="#fairness">See the fairness model</a>
+              <a class="button" href="#install">Add the gate</a>
+              <a class="button secondary" href="#ci">How the gate works</a>
             </div>
             <div class="proof-row" aria-label="Project facts">
-              <div class="proof"><strong>25</strong><span>benchmark tasks</span></div>
-              <div class="proof"><strong>7</strong><span>task categories</span></div>
+              <div class="proof"><strong>1</strong><span>exit-coded CI gate</span></div>
+              <div class="proof"><strong>BYO</strong><span>agent &amp; tasks</span></div>
               <div class="proof"><strong>6</strong><span>score dimensions</span></div>
-              <div class="proof"><strong>2</strong><span>provider adapters</span></div>
+              <div class="proof"><strong>100%</strong><span>replayable traces</span></div>
             </div>
           </div>
 
@@ -60,20 +61,22 @@
               <span class="dot"></span><span class="dot"></span><span class="dot"></span>
             </div>
             <div class="terminal">
-              <div><span class="muted">$</span> agent-evals compare openai.json anthropic.json</div>
+              <div><span class="muted">$</span> agent-evals check</div>
               <br />
-              <div><span class="blue">Run</span>                  Overall   Failure   Cost</div>
-              <div>openai / gpt-5.1       <span class="green">0.842</span>     4.0%      $0.18</div>
-              <div>anthropic / opus       <span class="green">0.817</span>     8.0%      $0.31</div>
+              <div class="blue">Regression gate</div>
+              <div><span class="muted">Metric</span>             Baseline  Candidate     Δ   Status</div>
+              <div>overall            0.842     0.781   <span class="red">-0.061</span>  <span class="red">BREACH</span></div>
+              <div>cost_usd           $0.18     $0.19   +5.6%   <span class="green">ok</span></div>
+              <div>median_latency     14.2s     15.1s   +6.3%   <span class="green">ok</span></div>
+              <div>completion         0.91      0.83    <span class="red">-0.08</span>   <span class="red">BREACH</span></div>
               <br />
-              <div class="muted">by_dimension</div>
-              <div>completion       █████████░ 0.89</div>
-              <div>tool_accuracy    ████████░░ 0.82</div>
-              <div>citation_quality ███████░░░ 0.74</div>
+              <div class="red">Gate FAILED: agent regressed beyond tolerance.</div>
+              <div><span class="muted">$</span> echo $?</div>
+              <div>1</div>
               <div class="score-grid">
-                <div class="score"><span>Median latency</span><strong>18.4s</strong></div>
-                <div class="score"><span>Tasks passed</span><strong>21/25</strong></div>
-                <div class="score"><span>Replayable</span><strong>JSON</strong></div>
+                <div class="score"><span>Runs on</span><strong>every PR</strong></div>
+                <div class="score"><span>Your agent</span><strong>plugin / prompt</strong></div>
+                <div class="score"><span>Every score</span><strong>replayable</strong></div>
               </div>
             </div>
           </div>
@@ -115,34 +118,34 @@
           </div>
         </section>
 
-        <section id="fairness">
+        <section id="ci">
           <div class="section-head">
-            <h2>Same tools. Same schemas. Same execution code.</h2>
+            <h2>Same harness, every PR.</h2>
             <p>
-              Both providers receive the same benchmark tools. The adapters only translate a
-              shared tool spec into the SDK-specific shape.
+              Pin a baseline from a known-good state, then gate every change against it. The
+              candidate is always executed fresh — never replayed — so the gate can actually fail.
             </p>
           </div>
           <div class="flow">
             <div class="flow-step">
               <span class="num">1</span>
-              <h3>Load task YAML</h3>
-              <p>Each task declares tools, expected outcomes, scoring weights, and limits.</p>
+              <h3>Point at your agent</h3>
+              <p>A provider + prompt, or a plugin returning your own adapter and tools.</p>
             </div>
             <div class="flow-step">
               <span class="num">2</span>
-              <h3>Expose shared tools</h3>
-              <p>OpenAI and Anthropic receive identical JSON Schema from one registry.</p>
+              <h3>Pin a baseline</h3>
+              <p><code>check --update-baseline</code> captures today's quality, cost, and latency.</p>
             </div>
             <div class="flow-step">
               <span class="num">3</span>
-              <h3>Normalize traces</h3>
-              <p>Messages, tool calls, usage, latency, and errors become one trace format.</p>
+              <h3>Gate on every change</h3>
+              <p>Tolerances per metric and per dimension; breach any one and the build fails.</p>
             </div>
             <div class="flow-step">
               <span class="num">4</span>
-              <h3>Write JSON results</h3>
-              <p>Timestamped files can be shown, compared, replayed, or read by a dashboard.</p>
+              <h3>Keep the evidence</h3>
+              <p>Every run is a portable scorecard with normalized, replayable traces.</p>
             </div>
           </div>
         </section>
@@ -150,19 +153,19 @@
         <section>
           <div class="comparison">
             <div>
-              <h2>A benchmark contract that survives the UI.</h2>
+              <h2>The score you can re-run.</h2>
               <p class="callout">
-                The first release is CLI-only. The result schema is the product surface: every run
-                writes a portable scorecard with normalized traces and cassette data.
+                Every run writes a portable, version-stamped scorecard with normalized traces and
+                cassette data. The gate diffs it against your baseline — and anyone can replay it.
               </p>
             </div>
             <div class="schema">
               <h3>Result shape</h3>
               <pre><code>{
-  "schema_version": "2026-05-29.1",
+  "schema_version": "2026-06-09.1",
   "manifest": {
-    "provider": "openai",
-    "model": "gpt-5.1",
+    "provider": "my-agent",
+    "model": "my-agent-v1",
     "task_hashes": {}
   },
   "summary": {
@@ -177,32 +180,32 @@
 
         <section id="install">
           <div class="section-head">
-            <h2>Install it like a normal CLI.</h2>
+            <h2>Add the gate in two commands.</h2>
             <p>
-              Published on PyPI for isolated installation with pipx. Add provider keys, run tasks,
-              then compare result files in the terminal.
+              Published on PyPI. Describe your agent and tolerances in <code>agentevals.toml</code>,
+              pin a baseline, then gate every change — locally or in CI.
             </p>
           </div>
           <div class="install">
             <div class="command">
               <pre><code>pipx install agent-builder-evals
-agent-evals list-tasks
 
-export OPENAI_API_KEY="..."
-export YOU_API_KEY="..."
+# describe your agent in agentevals.toml,
+# then capture a known-good baseline:
+agent-evals check --update-baseline
 
-agent-evals run \
-  --provider openai \
-  --tasks coding_001,company_research_001</code></pre>
+# on every change, gate against it:
+agent-evals check   # exit 1 if it regressed</code></pre>
             </div>
             <div class="command">
-              <pre><code>agent-evals show results/run_openai.json
+              <pre><code># also: apples-to-apples provider comparison
+agent-evals run --provider anthropic \
+  --tasks coding_001,company_research_001
+agent-evals run --provider openai \
+  --tasks coding_001,company_research_001
 
-agent-evals compare \
-  results/run_openai.json \
-  results/run_anthropic.json
-
-agent-evals replay results/run_openai.json</code></pre>
+agent-evals compare results/run_a.json \
+  results/run_b.json</code></pre>
             </div>
           </div>
         </section>
@@ -210,7 +213,7 @@ agent-evals replay results/run_openai.json</code></pre>
 
       <footer class="footer">
         <span>Agent Builder Evals</span>
-        <span>Apples-to-apples benchmarks for real AI agent systems.</span>
+        <span>Regression testing &amp; CI for real AI agent systems.</span>
       </footer>
     </div>
   </body>

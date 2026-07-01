@@ -1,0 +1,31 @@
+# Agent Builder Evals — CI config.
+# `agent-evals check` runs your agent over these tasks and fails (nonzero exit)
+# if it regressed past the tolerances below, compared to the pinned baseline.
+# Pin/refresh the baseline with: agent-evals check --update-baseline
+
+[project]
+# Point at your own task YAML directory (omit to use the built-in 25-task suite).
+# tasks_dir = "evals/tasks"
+baseline = "results/baseline.json"
+record   = "live"        # the candidate is always executed fresh, never replayed
+seed     = 42
+
+[agent]
+# Built-in provider — optionally override the system prompt to test *your* prompt:
+provider      = "anthropic"
+model         = "claude-opus-4-8"
+# system_prompt = "You are Acme's support agent. Be concise and always cite sources."
+
+# Or bring your own agent + tools via a factory ("module.path:callable"):
+# plugin = "myapp.evals:build"
+
+[tolerances]
+overall_drop         = 0.02   # fail if overall score drops more than 2 points
+cost_increase_pct    = 0.15   # fail if total cost rises more than 15%
+latency_increase_pct = 0.20   # fail if median latency rises more than 20%
+fail_rate_increase   = 0.0    # fail on any increase in hard failures
+
+# Per-dimension score-drop limits (omit a dimension to leave it ungated):
+[tolerances.per_dimension_drop]
+completion = 0.03
+citation   = 0.05

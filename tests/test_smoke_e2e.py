@@ -6,6 +6,9 @@ from agent_evals.runner import run_benchmark
 
 def test_smoke_runner_with_monkeypatched_adapter(monkeypatch, tmp_path):
     class FakeAdapter:
+        provider = "openai"
+        model = "gpt-5.1"
+
         def run_task(self, task, registry, ctx):
             return Trace(
                 provider="openai",

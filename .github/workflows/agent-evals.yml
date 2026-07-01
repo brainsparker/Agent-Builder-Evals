@@ -1,0 +1,33 @@
+name: agent-evals
+
+# Gate every PR on agent quality: fail the build if the agent regressed
+# in correctness, cost, or latency versus the pinned baseline.
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Sync dependencies
+        run: uv sync --extra dev
+
+      - name: Run regression gate
+        run: uv run agent-evals check --config agentevals.toml
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          YOU_API_KEY: ${{ secrets.YOU_API_KEY }}
+
+      - name: Upload run + traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-evals-results
+          path: results/
