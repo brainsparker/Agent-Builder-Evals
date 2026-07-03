@@ -15,6 +15,15 @@ from agent_evals.tasks.loader import TASKS_DIR, select_tasks
 app = typer.Typer(no_args_is_help=True)
 console = Console()
 
+lfd_app = typer.Typer(
+    no_args_is_help=True,
+    help=(
+        "Loss Function Development: run the eval suite as a blinded optimization "
+        "target with budgets, instruments, and an iteration log."
+    ),
+)
+app.add_typer(lfd_app, name="lfd")
+
 
 def _model_default(provider: str) -> str:
     return "claude-opus-4-8" if provider == "anthropic" else "gpt-5.1"
@@ -254,3 +263,271 @@ def check(
         console.print("[red]Gate FAILED: agent regressed beyond tolerance.[/red]")
         raise typer.Exit(1)
     console.print("[green]Gate passed.[/green]")
+
+
+def _load_lfd(config: Path):
+    from agent_evals.lfd import load_state
+    from agent_evals.project_config import load_project_config
+
+    try:
+        cfg = load_project_config(config)
+    except FileNotFoundError as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(2) from exc
+    return cfg, load_state(cfg.lfd.state)
+
+
+def _print_instruments(state, lfd_cfg, now) -> None:
+    """The instruments panel: every budget next to its live reading."""
+    elapsed = state.elapsed_h(now)
+    table = Table(title="Instruments")
+    table.add_column("Instrument")
+    table.add_column("Used", justify="right")
+    table.add_column("Budget", justify="right")
+    table.add_row(
+        "wall-clock",
+        "-" if elapsed is None else f"{elapsed:.2f}h",
+        "-" if lfd_cfg.wallclock_budget_h is None else f"{lfd_cfg.wallclock_budget_h:g}h",
+    )
+    table.add_row(
+        "spend",
+        f"${state.spent_usd:.4f}",
+        "-" if lfd_cfg.cost_budget_usd is None else f"${lfd_cfg.cost_budget_usd:g}",
+    )
+    table.add_row(
+        "cycles",
+        str(len(state.cycles)),
+        "-" if lfd_cfg.max_cycles is None else str(lfd_cfg.max_cycles),
+    )
+    console.print(table)
+
+
+def _print_score_panel(state, lfd_cfg, *, show_reasons: bool, misses) -> None:
+    latest = state.cycles[-1]
+    prev = state.cycles[-2].overall if len(state.cycles) > 1 else None
+    delta = "" if prev is None else f" ({latest.overall - prev:+.3f} vs prev)"
+    best = state.best_overall
+    console.print(
+        f"cycle {latest.n}: overall={latest.overall:.3f}{delta} | "
+        f"target={lfd_cfg.target_overall:g} | best={best:.3f} | "
+        f"passed {latest.passed}/{latest.task_count} | "
+        f"{latest.duration_s:.1f}s, {latest.tokens} tokens"
+        + ("" if latest.cost_usd is None else f", ${latest.cost_usd:.4f}")
+    )
+    if latest.by_dimension:
+        dims = " ".join(f"{name}={score:.3f}" for name, score in sorted(latest.by_dimension.items()))
+        console.print(f"dimensions: {dims}")
+
+    if misses:
+        table = Table(title=f"Misses ({len(misses)}) — blinded: scores only, no answer key")
+        table.add_column("Task")
+        table.add_column("Category")
+        table.add_column("Overall", justify="right")
+        table.add_column("Weak dimensions")
+        if show_reasons:
+            table.add_column("Judge reasons")
+        for miss in misses:
+            weak = ", ".join(f"{name}={score:.2f}" for name, score in miss.weak_dimensions.items())
+            row = [
+                miss.task_id + (" [red](failed)[/red]" if miss.failed else ""),
+                miss.category,
+                f"{miss.overall:.3f}",
+                weak,
+            ]
+            if show_reasons:
+                row.append("; ".join(miss.reasons.values()))
+            table.add_row(*row)
+        console.print(table)
+        if show_reasons:
+            console.print(
+                "[yellow]Reasons shown: judge rationales can leak eval-shaped hints. "
+                "Fixing them one keyword at a time is memorization, not improvement.[/yellow]"
+            )
+
+
+@lfd_app.command("init")
+def lfd_init(
+    config: Path = typer.Option(Path("agentevals.toml"), help="Path to agentevals.toml."),
+    force: bool = typer.Option(False, "--force", help="Overwrite an existing goal file."),
+) -> None:
+    """Write the /goal prompt (GOAL.md) rendered from the [lfd] loss function."""
+    from agent_evals.lfd import render_goal
+
+    cfg, _ = _load_lfd(config)
+    goal = cfg.lfd.goal
+    if goal.exists() and not force:
+        console.print(f"[red]{goal} already exists. Use --force to overwrite.[/red]")
+        raise typer.Exit(2)
+    goal.parent.mkdir(parents=True, exist_ok=True)
+    goal.write_text(render_goal(cfg.lfd), encoding="utf-8")
+    console.print(f"Wrote {goal}")
+    if cfg.lfd.wallclock_budget_h is None or cfg.lfd.cost_budget_usd is None:
+        console.print(
+            "[yellow]No wall-clock and/or dollar budget set in [lfd] — an unbounded "
+            "optimizer will grind forever on marginal gains. Set both before looping.[/yellow]"
+        )
+
+
+@lfd_app.command("score")
+def lfd_score(
+    hypothesis: str = typer.Option(
+        ..., "--hypothesis", "-H", help="What this cycle changed and why it should move the metric."
+    ),
+    config: Path = typer.Option(Path("agentevals.toml"), help="Path to agentevals.toml."),
+    record: str | None = typer.Option(None, help="Override config record mode (live or replay)."),
+    out: Path = typer.Option(Path("results/"), help="Where to archive the cycle's run."),
+    show_reasons: bool = typer.Option(
+        False, "--show-reasons", help="Include judge rationales per miss (may leak eval-shaped hints)."
+    ),
+) -> None:
+    """Run one optimization cycle: execute the agent, score blind, log the cycle.
+
+    Exit codes: 0 target met, 1 below target, 2 setup error, 3 budget exhausted.
+    """
+    import time
+    from datetime import UTC, datetime
+
+    from agent_evals.lfd import evaluate, extract_misses, record_cycle, save_state
+    from agent_evals.results_io import write_result
+    from agent_evals.runner import execute_run
+
+    cfg, state = _load_lfd(config)
+    if record:
+        cfg.record = record
+
+    # Budgets are checked before spending anything on a new cycle.
+    verdict = evaluate(state, cfg.lfd)
+    if verdict.exhausted:
+        for reason in verdict.exhausted:
+            console.print(f"[red]budget exhausted — {reason}[/red]")
+        console.print("[red]Stop optimizing and report where you got to (see `lfd log`).[/red]")
+        raise typer.Exit(3)
+
+    root = cfg.tasks_dir or TASKS_DIR
+    try:
+        selected = select_tasks(
+            ids=cfg.task_ids,
+            category=cfg.category,
+            all_tasks=cfg.all_tasks,
+            root=root,
+        )
+        adapter, registry, backend = _build_candidate(cfg)
+    except (RuntimeError, ValueError, ImportError, AttributeError, TypeError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(2) from exc
+
+    started = time.monotonic()
+    candidate = execute_run(
+        adapter=adapter,  # type: ignore[arg-type]
+        registry=registry,  # type: ignore[arg-type]
+        tasks=selected,
+        judge_model=cfg.judge_model,
+        record_mode=cfg.record,
+        seed=cfg.seed,
+        backend=backend,
+        tasks_dir=cfg.tasks_dir,
+    )
+    duration_s = time.monotonic() - started
+
+    run_file = write_result(candidate, out)
+    now = datetime.now(UTC)
+    record_cycle(
+        state,
+        hypothesis=hypothesis,
+        run=candidate,
+        run_file=run_file,
+        duration_s=duration_s,
+        now=now,
+    )
+    save_state(state, cfg.lfd.state)
+
+    misses = extract_misses(candidate)
+    _print_score_panel(state, cfg.lfd, show_reasons=show_reasons, misses=misses)
+    _print_instruments(state, cfg.lfd, now)
+
+    verdict = evaluate(state, cfg.lfd, now)
+    console.print(
+        "[dim]Reflect before the next cycle: more general solution, or memorizing the eval? "
+        "If memorizing, the next change removes an eval-shaped artifact, not adds one.[/dim]"
+    )
+    if verdict.target_met:
+        console.print(f"[green]TARGET REACHED: overall >= {cfg.lfd.target_overall:g}. Stop optimizing.[/green]")
+        return
+    if verdict.exhausted:
+        for reason in verdict.exhausted:
+            console.print(f"[red]budget exhausted — {reason}[/red]")
+        console.print("[red]Stop optimizing and report where you got to (see `lfd log`).[/red]")
+        raise typer.Exit(3)
+    if verdict.stalled:
+        console.print(
+            f"[yellow]STALLED: {state.stalled_for} cycles without a new best. "
+            "The next cycle must be a qualitatively different approach — "
+            "not the same knob turned harder.[/yellow]"
+        )
+    raise typer.Exit(1)
+
+
+@lfd_app.command("status")
+def lfd_status(
+    config: Path = typer.Option(Path("agentevals.toml"), help="Path to agentevals.toml."),
+) -> None:
+    """Where the loop stands: target vs. score, budgets vs. burn, stall state."""
+    from datetime import UTC, datetime
+
+    from agent_evals.lfd import evaluate
+
+    cfg, state = _load_lfd(config)
+    now = datetime.now(UTC)
+    if not state.cycles:
+        console.print(
+            f"No cycles yet (state: {cfg.lfd.state}). "
+            'Run `agent-evals lfd score --hypothesis "..."` to start.'
+        )
+        return
+    latest = state.cycles[-1]
+    console.print(
+        f"target={cfg.lfd.target_overall:g} | best={state.best_overall:.3f} | "
+        f"last={latest.overall:.3f} (cycle {latest.n}, {latest.utc_timestamp})"
+    )
+    _print_instruments(state, cfg.lfd, now)
+    verdict = evaluate(state, cfg.lfd, now)
+    if verdict.target_met:
+        console.print("[green]Target met.[/green]")
+    for reason in verdict.exhausted:
+        console.print(f"[red]budget exhausted — {reason}[/red]")
+    if verdict.stalled:
+        console.print(f"[yellow]Stalled for {state.stalled_for} cycles — force entropy.[/yellow]")
+
+
+@lfd_app.command("log")
+def lfd_log(
+    config: Path = typer.Option(Path("agentevals.toml"), help="Path to agentevals.toml."),
+    json_out: bool = typer.Option(False, "--json", help="Dump the raw state JSON instead of a table."),
+) -> None:
+    """The iteration log: every cycle's hypothesis, score, delta, cost, duration."""
+    cfg, state = _load_lfd(config)
+    if json_out:
+        console.print_json(state.model_dump_json())
+        return
+    table = Table(title=f"Iteration log ({cfg.lfd.state})")
+    table.add_column("#", justify="right")
+    table.add_column("When")
+    table.add_column("Overall", justify="right")
+    table.add_column("Δ", justify="right")
+    table.add_column("Cost", justify="right")
+    table.add_column("Time", justify="right")
+    table.add_column("Hypothesis")
+    prev: float | None = None
+    for cycle in state.cycles:
+        delta = "" if prev is None else f"{cycle.overall - prev:+.3f}"
+        prev = cycle.overall
+        table.add_row(
+            str(cycle.n),
+            cycle.utc_timestamp.split(".")[0],
+            f"{cycle.overall:.3f}",
+            delta,
+            "" if cycle.cost_usd is None else f"${cycle.cost_usd:.4f}",
+            f"{cycle.duration_s:.1f}s",
+            cycle.hypothesis,
+        )
+    console.print(table)

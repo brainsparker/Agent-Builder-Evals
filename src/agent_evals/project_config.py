@@ -6,6 +6,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from agent_evals.gate import Tolerances
+from agent_evals.lfd import LfdConfig
 
 
 class AgentConfig(BaseModel):
@@ -33,6 +34,7 @@ class ProjectConfig(BaseModel):
     seed: int = 42
     agent: AgentConfig = Field(default_factory=AgentConfig)
     tolerances: Tolerances = Field(default_factory=Tolerances)
+    lfd: LfdConfig = Field(default_factory=LfdConfig)
 
 
 def _resolve(base_dir: Path, value: Path | None) -> Path | None:
@@ -56,9 +58,10 @@ def load_project_config(path: Path) -> ProjectConfig:
 
     cfg = ProjectConfig.model_validate(
         {
-            **{k: v for k, v in project.items() if k not in {"agent", "tolerances"}},
+            **{k: v for k, v in project.items() if k not in {"agent", "tolerances", "lfd"}},
             "agent": payload.get("agent", {}),
             "tolerances": payload.get("tolerances", {}),
+            "lfd": payload.get("lfd", {}),
         }
     )
 
@@ -67,4 +70,8 @@ def load_project_config(path: Path) -> ProjectConfig:
     resolved_baseline = _resolve(base_dir, cfg.baseline)
     assert resolved_baseline is not None  # baseline always has a default
     cfg.baseline = resolved_baseline
+    for attr in ("state", "goal"):
+        resolved = _resolve(base_dir, getattr(cfg.lfd, attr))
+        assert resolved is not None  # both always have defaults
+        setattr(cfg.lfd, attr, resolved)
     return cfg

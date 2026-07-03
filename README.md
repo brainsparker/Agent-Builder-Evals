@@ -70,6 +70,50 @@ A ready-to-use GitHub Action lives at `.github/workflows/agent-evals.yml`: it ru
 
   > Plugin code is imported into the process — only point at code you trust. HTTP/subprocess agents and plugin-supplied scorers are planned.
 
+## Optimization loops: loss-function development (`lfd`)
+
+`check` is a gate — it tells you when the agent got *worse*. `agent-evals lfd`
+turns the same eval suite into a **loss function** for an outer optimization
+loop: point a coding agent (or yourself) at a target score and iterate until
+the target is met or a budget runs out.
+
+```bash
+agent-evals lfd init                                # write GOAL.md — the /goal prompt for the loop
+agent-evals lfd score --hypothesis "cache retries"  # run one cycle: execute, score blind, log it
+agent-evals lfd status                              # target vs. score, budgets vs. burn, stall state
+agent-evals lfd log                                 # every cycle's hypothesis, score, Δ, cost, time
+```
+
+An optimizer takes every shortcut you leave open, so the loss function is more
+than the metric — `[lfd]` in `agentevals.toml` encodes all four parts:
+
+- **Target** — `target_overall`, scored **blind**: `lfd score` reports scores
+  and a per-item miss list (task, weak dimensions) but never the answer key.
+  Judge rationales are hidden unless you pass `--show-reasons`, because an
+  optimizer will memorize them one keyword at a time.
+- **Constraints** — `wallclock_budget_h`, `cost_budget_usd`, `max_cycles` are
+  hard stops, not vibes: a blown budget refuses to run and exits `3`.
+- **Instruments** — every constraint is inspectable (`lfd status`): elapsed
+  vs. time budget, cumulative spend vs. dollar budget, tokens and seconds per
+  cycle. You can't optimize what you can't see.
+- **Forced entropy** — every cycle requires a `--hypothesis`, the iteration
+  log survives context compactions, and a stall (`stall_cycles` without a new
+  best) demands a qualitatively different next move, not the same knob turned
+  harder.
+
+Exit codes make the loop scriptable: `0` target met, `1` below target (keep
+going), `3` budget exhausted, `2` setup error. A minimal unattended loop:
+
+```bash
+agent-evals lfd init && cat GOAL.md   # hand this to your agent as its /goal
+# the agent then repeats: change code → agent-evals lfd score --hypothesis "…"
+# until exit code 0 (done) or 3 (out of budget)
+```
+
+Keep the eval tasks out of the optimizer's reach (separate directory, not in
+its sandbox): a blinded score plus a wide eval set is what makes the only
+profitable direction *actually getting better at the task*.
+
 ## Also: provider comparison
 
 The same harness compares complete agent systems across providers apples-to-apples, since both receive the **same tool specs and the same local tool code** — the adapters only translate a shared `ToolSpec` into each SDK's shape.

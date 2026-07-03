@@ -29,3 +29,15 @@ fail_rate_increase   = 0.0    # fail on any increase in hard failures
 [tolerances.per_dimension_drop]
 completion = 0.03
 citation   = 0.05
+
+# Optional: loss-function development (`agent-evals lfd`). Runs the same suite
+# as an optimization target for an outer loop instead of a regression gate.
+# Set BOTH the time and dollar budgets — an unbounded optimizer grinds forever.
+# [lfd]
+# target_overall     = 0.95                     # `lfd score` exits 0 at/above this
+# wallclock_budget_h = 4                        # hard stop after 4 hours of looping
+# cost_budget_usd    = 25                       # hard stop after $25 of measured spend
+# max_cycles         = 100                      # hard stop after 100 score cycles
+# stall_cycles       = 3                        # cycles without a new best before forcing entropy
+# state              = "results/lfd_state.json" # iteration log (persists across cycles)
+# goal               = "GOAL.md"                # where `lfd init` writes the /goal prompt
