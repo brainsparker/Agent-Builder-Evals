@@ -50,6 +50,42 @@ completion = 0.03
 citation   = 0.05
 ```
 
+### Repeated trials: gate on a rate, not on one run
+
+An agent's run is sampled, so one run of one task is one sample. A gate that reads a single run fails builds that did not change and misses a task that now fails one time in five. Set `trials` to run every task several times:
+
+```toml
+[project]
+trials      = 3      # attempts per task (default 1)
+concurrency = 4      # tasks and trials to run in parallel
+
+[tolerances]
+overall_drop     = 0.02
+noise_sigma      = 2      # a score drop must clear its limit by 2 standard errors to fail
+consistency_drop = 0.0    # fail if fewer tasks pass on every trial than in the baseline
+```
+
+```bash
+agent-evals check --update-baseline   # pin the baseline with the same trials
+agent-evals check                     # or: agent-evals check --trials 5
+```
+
+What changes with `trials > 1`:
+
+- **Scores are averaged per task first, then across tasks,** so the overall score moves less from run to run. Cost is the real spend across all trials.
+- **Three rates are reported.** Pass rate is the share of individual trials that passed. `pass@k` is the share of tasks that passed at least once in `k` trials ("can it do this at all?"). `pass^k` is the share of tasks that passed on all `k` trials ("does it work every time?"). `k` is your `trials` setting.
+- **`consistency_drop` gates on `pass^k`.** A task that used to pass every time and now passes two times in three barely moves the mean, but it moves `pass^k`. The gate also lists every task that passed some trials and not others. Do not paper over these with retries: a retry-until-green policy is `pass@k`, and it stays green while the agent gets less reliable.
+- **Passed** in `show` and `compare` counts tasks that passed on every trial.
+
+The gate table also shows the standard error of each score drop, computed from the per-task paired differences between baseline and candidate (this works with `trials = 1` too, given two or more tasks):
+
+- With `noise_sigma = 0` (the default) the thresholds behave as before. If a breach is within two standard errors of its limit, the gate still fails and prints a warning that the drop may be noise.
+- With `noise_sigma = 2`, a score drop only fails when it exceeds the tolerance by two standard errors. This cuts false alarms and also makes the gate less sensitive, so pair it with enough tasks and trials that the standard error is small. On a four-task suite almost nothing clears it.
+
+A baseline pinned before trials existed still loads and gates as a one-trial run. If baseline and candidate use different `trials`, the gate warns, compares cost per trial, and skips `pass^k`.
+
+Trials multiply cost and time. Three to five is a common starting point; run the current agent a few times first and look at how far its score moves on its own before choosing tolerances.
+
 ### In CI
 
 A ready-to-use GitHub Action lives at `.github/workflows/agent-evals.yml`: it runs `agent-evals check` on every PR, fails the build on a regression, and uploads the full `results/` traces as an artifact.
@@ -123,6 +159,7 @@ uv run agent-evals run --provider anthropic --model claude-opus-4-8 --tasks comp
 uv run agent-evals run --provider openai    --model gpt-5.1        --tasks company_research_001 --out results/
 uv run agent-evals show    results/run_*.json
 uv run agent-evals compare results/run_a.json results/run_b.json
+uv run agent-evals run --provider anthropic --tasks coding_001 --trials 5 --out results/   # pass@5 and pass^5
 uv run agent-evals replay  results/run_a.json     # rescore a run without re-calling tools
 uv run agent-evals list-tasks
 ```

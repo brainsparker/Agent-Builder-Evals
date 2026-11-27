@@ -28,25 +28,35 @@ def execute_run(
     backend: object,
     concurrency: int = 1,
     tasks_dir: Path | None = None,
+    trials: int = 1,
 ) -> RunResult:
     """Run an agent over tasks and score it, returning the result in memory.
 
     The adapter and registry are injected so a bring-your-own agent (custom
     adapter, custom tools) can be benchmarked through the exact same scoring
     and manifest path as the built-in providers.
+
+    ``trials`` runs every task that many times. Each trial gets its own
+    ``ToolContext``, so no tool-call history carries over from one attempt to
+    the next, and each trial is scored on its own. The scorecards come back in
+    task order, then trial order.
     """
+    if trials < 1:
+        raise ValueError(f"trials must be at least 1, got {trials}")
     cassette: dict[str, object] = {}
 
-    def run_one(task: Task):
+    def run_one(job: tuple[Task, int]):
+        task, trial = job
         ctx = ToolContext(search_backend=backend, record_mode=record_mode, cassette=cassette)
         trace = adapter.run_task(task, registry, ctx)
-        return score_trace(task, trace)
+        return score_trace(task, trace).model_copy(update={"trial": trial})
 
-    if concurrency <= 1 or len(tasks) <= 1:
-        scorecards = [run_one(task) for task in tasks]
+    jobs = [(task, trial) for task in tasks for trial in range(1, trials + 1)]
+    if concurrency <= 1 or len(jobs) <= 1:
+        scorecards = [run_one(job) for job in jobs]
     else:
         with ThreadPoolExecutor(max_workers=concurrency) as pool:
-            scorecards = list(pool.map(run_one, tasks))
+            scorecards = list(pool.map(run_one, jobs))
     manifest = RunManifest(
         schema_version=SCHEMA_VERSION,
         package_version=__version__,
@@ -59,6 +69,7 @@ def execute_run(
         pricing_hash=pricing_hash(),
         task_hashes=task_hashes(tasks, root=tasks_dir or TASKS_DIR),
         record_mode=record_mode,  # type: ignore[arg-type]
+        trials=trials,
     )
     return RunResult(
         schema_version=SCHEMA_VERSION,
@@ -84,6 +95,7 @@ def run_benchmark(
     out_dir: Path,
     concurrency: int = 1,
     tasks_dir: Path | None = None,
+    trials: int = 1,
 ) -> Path:
     settings = require_keys(provider, needs_search=record_mode == "live")
     api_key = settings.anthropic_api_key if provider == "anthropic" else settings.openai_api_key
@@ -100,6 +112,7 @@ def run_benchmark(
         backend=backend,
         concurrency=concurrency,
         tasks_dir=tasks_dir,
+        trials=trials,
     )
     return write_result(run, out_dir)
 
@@ -111,7 +124,7 @@ def replay_result(path: Path, out_dir: Path | None = None) -> Path:
     prior = read_result(path)
     tasks_by_id = {task.id: task for task in load_tasks()}
     scorecards = [
-        score_trace(tasks_by_id[card.task_id], card.trace)
+        score_trace(tasks_by_id[card.task_id], card.trace).model_copy(update={"trial": card.trial})
         for card in prior.scorecards
         if card.task_id in tasks_by_id
     ]

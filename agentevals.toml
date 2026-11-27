@@ -9,6 +9,10 @@
 baseline = "results/baseline.json"
 record   = "live"        # the candidate is always executed fresh, never replayed
 seed     = 42
+# One run of a sampled agent is one sample. Run each task several times to gate
+# on rates (pass@k, pass^k) and average out run-to-run noise. Costs scale with it.
+# trials      = 3
+# concurrency = 4          # tasks and trials to run in parallel
 
 [agent]
 # Built-in provider — optionally override the system prompt to test *your* prompt:
@@ -24,6 +28,8 @@ overall_drop         = 0.02   # fail if overall score drops more than 2 points
 cost_increase_pct    = 0.15   # fail if total cost rises more than 15%
 latency_increase_pct = 0.20   # fail if median latency rises more than 20%
 fail_rate_increase   = 0.0    # fail on any increase in hard failures
+# noise_sigma        = 2      # score drops must clear their limit by 2 standard errors to fail
+# consistency_drop   = 0.0    # with trials > 1: fail if pass^k (tasks passing every trial) drops
 
 # Per-dimension score-drop limits (omit a dimension to leave it ungated):
 [tolerances.per_dimension_drop]

@@ -32,6 +32,11 @@ class ProjectConfig(BaseModel):
     judge_model: str = "claude-haiku-4-5"
     record: str = "live"
     seed: int = 42
+    # Attempts per task. One run of a sampled agent is one sample; raise this
+    # to measure a rate (pass@k, pass^k) and to average out run-to-run noise.
+    trials: int = Field(default=1, ge=1)
+    # Tasks (and trials) to run in parallel.
+    concurrency: int = Field(default=1, ge=1)
     agent: AgentConfig = Field(default_factory=AgentConfig)
     tolerances: Tolerances = Field(default_factory=Tolerances)
     lfd: LfdConfig = Field(default_factory=LfdConfig)
