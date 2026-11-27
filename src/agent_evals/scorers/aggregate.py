@@ -11,6 +11,7 @@ from agent_evals.scorers.failure import FailureScorer
 from agent_evals.scorers.latency import LatencyScorer
 from agent_evals.scorers.task_completion import TaskCompletionScorer
 from agent_evals.scorers.tool_accuracy import ToolAccuracyScorer
+from agent_evals.stats import pass_at_k, pass_pow_k, standard_error
 
 
 DEFAULT_WEIGHTS = {
@@ -67,6 +68,40 @@ def score_trace(task: Task, trace: Trace) -> Scorecard:
     )
 
 
+def cards_by_task(scorecards: list[Scorecard]) -> dict[str, list[Scorecard]]:
+    """Group scorecards by task id, keeping first-seen task order."""
+    grouped: dict[str, list[Scorecard]] = {}
+    for card in scorecards:
+        grouped.setdefault(card.task_id, []).append(card)
+    return grouped
+
+
+def task_overall_means(scorecards: list[Scorecard]) -> dict[str, float]:
+    """Mean overall score per task across its trials."""
+    return {
+        task_id: mean(card.overall for card in cards)
+        for task_id, cards in cards_by_task(scorecards).items()
+    }
+
+
+def task_dimension_means(scorecards: list[Scorecard], dimension: str) -> dict[str, float]:
+    """Mean score per task for one dimension, over the trials that report it."""
+    out: dict[str, float] = {}
+    for task_id, cards in cards_by_task(scorecards).items():
+        scores = [card.dimensions[dimension].score for card in cards if dimension in card.dimensions]
+        if scores:
+            out[task_id] = mean(scores)
+    return out
+
+
+def task_pass_counts(scorecards: list[Scorecard]) -> dict[str, tuple[int, int]]:
+    """``(trials passed, trials run)`` per task."""
+    return {
+        task_id: (sum(1 for card in cards if card.passed), len(cards))
+        for task_id, cards in cards_by_task(scorecards).items()
+    }
+
+
 def summarize(scorecards: list[Scorecard]) -> RunSummary:
     if not scorecards:
         return RunSummary(
@@ -79,24 +114,35 @@ def summarize(scorecards: list[Scorecard]) -> RunSummary:
             by_dimension={},
             by_category={},
         )
+    grouped = cards_by_task(scorecards)
+    # Every aggregate score is a mean over tasks of the per-task mean, so a
+    # task that happened to get more trials does not weigh more.
+    task_means = task_overall_means(scorecards)
     dims = sorted({name for card in scorecards for name in card.dimensions})
     by_dimension = {
-        name: mean(card.dimensions[name].score for card in scorecards if name in card.dimensions)
-        for name in dims
+        name: mean(task_dimension_means(scorecards, name).values()) for name in dims
     }
-    cats = sorted({card.category.value for card in scorecards})
+    task_category = {task_id: cards[0].category.value for task_id, cards in grouped.items()}
+    cats = sorted(set(task_category.values()))
     by_category = {
-        cat: mean(card.overall for card in scorecards if card.category.value == cat)
+        cat: mean(score for task_id, score in task_means.items() if task_category[task_id] == cat)
         for cat in cats
     }
     costs = [card.cost_usd for card in scorecards if card.cost_usd is not None]
+    counts = task_pass_counts(scorecards)
+    trials = max(total for _passed, total in counts.values())
     return RunSummary(
-        task_count=len(scorecards),
-        overall_mean=mean(card.overall for card in scorecards),
-        passed=sum(1 for card in scorecards if card.passed),
+        task_count=len(grouped),
+        overall_mean=mean(task_means.values()),
+        passed=sum(1 for passed, total in counts.values() if passed == total),
         failure_rate=sum(1 for card in scorecards if card.failed) / len(scorecards),
         total_cost_usd=sum(costs) if len(costs) == len(scorecards) else None,
         median_latency_s=median(card.latency_s for card in scorecards),
         by_dimension=by_dimension,
         by_category=by_category,
+        trials=trials,
+        pass_rate=mean(passed / total for passed, total in counts.values()),
+        pass_at_k=mean(pass_at_k(passed, total, total) for passed, total in counts.values()),
+        pass_pow_k=mean(pass_pow_k(passed, total, total) for passed, total in counts.values()),
+        overall_se=standard_error(list(task_means.values())),
     )

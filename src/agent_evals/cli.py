@@ -29,6 +29,22 @@ def _model_default(provider: str) -> str:
     return "claude-opus-4-8" if provider == "anthropic" else "gpt-5.1"
 
 
+def _rate(value: float | None) -> str:
+    return "" if value is None else f"{value:.1%}"
+
+
+def _trials_line(summary) -> str:
+    """One line on what repeated trials measured: rates, and the noise on the mean."""
+    k = summary.trials
+    line = (
+        f"{k} trials per task | pass rate={_rate(summary.pass_rate)} "
+        f"pass@{k}={_rate(summary.pass_at_k)} pass^{k}={_rate(summary.pass_pow_k)}"
+    )
+    if summary.overall_se is not None:
+        line += f" | overall ±{summary.overall_se:.3f} SE"
+    return line
+
+
 @app.command("list-tasks")
 def list_tasks(category: Optional[Category] = None) -> None:
     tasks = select_tasks(category=category, all_tasks=category is None)
@@ -54,6 +70,7 @@ def run(
     seed: int = typer.Option(42),
     out: Path = typer.Option(Path("results/")),
     tasks_dir: Path | None = typer.Option(None, help="Directory of your own task YAML (defaults to built-ins)."),
+    trials: int = typer.Option(1, min=1, help="Attempts per task; more than 1 reports pass@k and pass^k."),
 ) -> None:
     root = tasks_dir or TASKS_DIR
     selected = select_tasks(
@@ -73,6 +90,7 @@ def run(
             out_dir=out,
             concurrency=concurrency,
             tasks_dir=tasks_dir,
+            trials=trials,
         )
     except RuntimeError as exc:
         console.print(f"[red]{exc}[/red]")
@@ -89,8 +107,13 @@ def show(results_file: Path) -> None:
         f"{run.manifest.provider} / {run.manifest.model} | "
         f"overall={run.summary.overall_mean:.3f} passed={run.summary.passed}/{run.summary.task_count}"
     )
+    multi = run.summary.trials > 1
+    if multi:
+        console.print(_trials_line(run.summary))
     table = Table(title=str(results_file))
     table.add_column("Task")
+    if multi:
+        table.add_column("Trial", justify="right")
     table.add_column("Category")
     table.add_column("Overall", justify="right")
     table.add_column("Passed")
@@ -100,6 +123,7 @@ def show(results_file: Path) -> None:
         cost = "" if card.cost_usd is None else f"${card.cost_usd:.4f}"
         table.add_row(
             card.task_id,
+            *([str(card.trial)] if multi else []),
             card.category.value,
             f"{card.overall:.3f}",
             "yes" if card.passed else "no",
@@ -118,6 +142,11 @@ def compare(files: list[Path]) -> None:
     table.add_column("Model")
     table.add_column("Overall", justify="right")
     table.add_column("Passed", justify="right")
+    multi = any(run.summary.trials > 1 for run in runs)
+    if multi:
+        table.add_column("Trials", justify="right")
+        table.add_column("pass@k", justify="right")
+        table.add_column("pass^k", justify="right")
     table.add_column("Failure", justify="right")
     table.add_column("Cost", justify="right")
     for path, run in zip(files, runs):
@@ -128,6 +157,15 @@ def compare(files: list[Path]) -> None:
             run.manifest.model,
             f"{run.summary.overall_mean:.3f}",
             f"{run.summary.passed}/{run.summary.task_count}",
+            *(
+                [
+                    str(run.summary.trials),
+                    _rate(run.summary.pass_at_k),
+                    _rate(run.summary.pass_pow_k),
+                ]
+                if multi
+                else []
+            ),
             f"{run.summary.failure_rate:.1%}",
             cost,
         )
@@ -182,6 +220,7 @@ def check(
     ),
     record: str | None = typer.Option(None, help="Override config record mode (live or replay)."),
     out: Path = typer.Option(Path("results/"), help="Where to archive the candidate run."),
+    trials: int | None = typer.Option(None, min=1, help="Override config trials (attempts per task)."),
 ) -> None:
     """Run your agent and fail (nonzero exit) if it regressed against the pinned baseline."""
     from agent_evals.gate import evaluate_gate
@@ -196,6 +235,8 @@ def check(
         raise typer.Exit(2) from exc
     if record:
         cfg.record = record
+    if trials:
+        cfg.trials = trials
 
     root = cfg.tasks_dir or TASKS_DIR
     try:
@@ -219,6 +260,8 @@ def check(
         seed=cfg.seed,
         backend=backend,
         tasks_dir=cfg.tasks_dir,
+        trials=cfg.trials,
+        concurrency=cfg.concurrency,
     )
 
     if update_baseline:
@@ -227,6 +270,8 @@ def check(
             f"Pinned baseline -> {path} "
             f"(overall={candidate.summary.overall_mean:.3f}, {candidate.summary.task_count} tasks)"
         )
+        if candidate.summary.trials > 1:
+            console.print(_trials_line(candidate.summary))
         return
 
     write_result(candidate, out)
@@ -246,6 +291,7 @@ def check(
     table.add_column("Δ", justify="right")
     table.add_column("Limit", justify="right")
     table.add_column("Status")
+    table.add_column("Note")
     for row in report.rows:
         status = "[red]BREACH[/red]" if row.breached else "[green]ok[/green]"
         if row.note and not row.breached and row.delta is None:
@@ -254,8 +300,11 @@ def check(
         limit = "" if row.tolerance is None else f"{row.tolerance:+.4f}"
         base = "" if row.baseline is None else f"{row.baseline:.4f}"
         cand = "" if row.candidate is None else f"{row.candidate:.4f}"
-        table.add_row(row.name, base, cand, delta, limit, status)
+        note = "" if row.delta is None else row.note
+        table.add_row(row.name, base, cand, delta, limit, status, note)
     console.print(table)
+    if candidate.summary.trials > 1:
+        console.print(_trials_line(candidate.summary))
     for warning in report.warnings:
         console.print(f"[yellow]warning:[/yellow] {warning}")
 
@@ -426,6 +475,8 @@ def lfd_score(
         seed=cfg.seed,
         backend=backend,
         tasks_dir=cfg.tasks_dir,
+        trials=cfg.trials,
+        concurrency=cfg.concurrency,
     )
     duration_s = time.monotonic() - started
 

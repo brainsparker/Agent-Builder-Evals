@@ -131,6 +131,8 @@ class Scorecard(BaseModel):
     latency_s: float
     failed: bool
     trace: Trace
+    # 1-based attempt number when a task is run more than once (`trials`).
+    trial: int = 1
 
 
 class RunManifest(BaseModel):
@@ -146,10 +148,21 @@ class RunManifest(BaseModel):
     pricing_hash: str
     task_hashes: dict[str, str]
     record_mode: Literal["live", "replay"] = "live"
+    trials: int = 1
     warnings: list[str] = Field(default_factory=list)
 
 
 class RunSummary(BaseModel):
+    """Aggregate of a run.
+
+    With ``trials > 1`` every task is attempted several times. ``task_count``
+    counts distinct tasks, score means are taken per task first and then
+    across tasks, ``passed`` counts tasks that passed on every trial, and
+    ``total_cost_usd`` is the real spend across all trials. The fields below
+    ``by_category`` default to their single-trial values, so results written
+    before trials existed still load.
+    """
+
     task_count: int
     overall_mean: float
     passed: int
@@ -158,6 +171,14 @@ class RunSummary(BaseModel):
     median_latency_s: float
     by_dimension: dict[str, float]
     by_category: dict[str, float]
+    trials: int = 1
+    # Share of individual trials that passed (pass@1).
+    pass_rate: float | None = None
+    # Share of tasks that passed at least once / every time in `trials` attempts.
+    pass_at_k: float | None = None
+    pass_pow_k: float | None = None
+    # Standard error of `overall_mean` across tasks (None with fewer than 2 tasks).
+    overall_se: float | None = None
 
 
 class RunResult(BaseModel):

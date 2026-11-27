@@ -26,10 +26,12 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from statistics import mean
 
 from pydantic import BaseModel, Field
 
 from agent_evals.models import RunResult
+from agent_evals.scorers.aggregate import cards_by_task
 
 # A dimension scoring below this on a missed task is surfaced in the miss list.
 DIM_MISS_THRESHOLD = 0.7
@@ -203,21 +205,30 @@ def extract_misses(run: RunResult) -> list[Miss]:
     answers and expected outcomes cannot leak through this path.
     """
     misses: list[Miss] = []
-    for card in run.scorecards:
-        if card.passed and not card.failed:
+    for cards in cards_by_task(run.scorecards).values():
+        if all(card.passed and not card.failed for card in cards):
             continue
-        weak = {
-            name: dim.score
-            for name, dim in sorted(card.dimensions.items(), key=lambda kv: kv[1].score)
-            if dim.score < DIM_MISS_THRESHOLD
+        # With repeated trials a task is one miss, not one per attempt: it is
+        # reported with its mean scores, and the rationales of its worst trial.
+        worst = min(cards, key=lambda card: card.overall)
+        dim_means = {
+            name: mean(card.dimensions[name].score for card in cards if name in card.dimensions)
+            for name in worst.dimensions
         }
-        reasons = {name: card.dimensions[name].reason for name in weak if card.dimensions[name].reason}
+        weak = {
+            name: score
+            for name, score in sorted(dim_means.items(), key=lambda kv: kv[1])
+            if score < DIM_MISS_THRESHOLD
+        }
+        reasons = {
+            name: worst.dimensions[name].reason for name in weak if worst.dimensions[name].reason
+        }
         misses.append(
             Miss(
-                task_id=card.task_id,
-                category=card.category.value,
-                overall=card.overall,
-                failed=card.failed,
+                task_id=worst.task_id,
+                category=worst.category.value,
+                overall=mean(card.overall for card in cards),
+                failed=any(card.failed for card in cards),
                 weak_dimensions=weak,
                 reasons=reasons,
             )
